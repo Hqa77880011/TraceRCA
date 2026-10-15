@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "TraceRCA"
+version = "0.1.0"
+description = "TraceRCA implementation"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.24", "scipy>=1.11", "torch>=2.2", "matplotlib>=3.8"]
+
+[project.scripts]
+tracerca = "tracerca.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["tracerca*"]

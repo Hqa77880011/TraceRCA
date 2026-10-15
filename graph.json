@@ -1,0 +1,10 @@
+{
+  "nodes": ["pump", "pipe", "tank"],
+  "sources": [
+    {"latency_prior": 0, "latency_sd": 0.1, "latency_bounds": [0, 0], "reliability": 1},
+    {"latency_prior": 0.2, "latency_sd": 0.1, "latency_bounds": [0, 0.5], "reliability": 0.95},
+    {"latency_prior": 0.5, "latency_sd": 0.2, "latency_bounds": [0, 1], "reliability": 0.9}
+  ],
+  "edges": [{"u": 0, "v": 1, "type": "material"}, {"u": 1, "v": 2, "type": "material"}],
+  "kernels": {"material": {"shape": 2, "mean": 5}}
+}
