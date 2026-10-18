@@ -50,3 +50,7 @@ tracerca evaluate --data events.json --model model.json --output outputs/drift -
 `--missing` removes a seeded fraction of whole sources; `--clock-offset` shifts all observed events and the horizon; `--latency-drift` adds a source-index-scaled logger offset without refitting propagation. Preserve at least one observed source per episode. For logger-swap adaptation, fit a new model with changed priors while retaining the same physical topology and compare fitted means. Missing-middle tests remove only the annotated intermediate events from a copied event file.
 
 `episodes.json` records ranked roots, selected paths, inferred physical times, unsupported nodes, event NLL, and timing. `metrics.json` reports Root Hit@1/3, MRR, path precision/recall/F1, physical-delay MAE, per-event NLL, unsupported mass, decision time relative to injection, and inference latency whenever the corresponding references exist. `likelihood.png` displays per-episode NLL. A horizon denotes the decision time; evaluate several horizons to locate the first successful diagnosis. Group results by missingness and latency interventions, using fault episodes as paired units. No dataset outcomes or reference annotations are fabricated.
+
+## Reproduction logic conventions
+
+Episode start defaults to zero. A global clock-offset control shifts start, horizon and event timestamps together; likelihood exposure and gamma-kernel integrals use that same observation window. Empty training event lists retain integer node/source index tensors and contribute baseline exposure.

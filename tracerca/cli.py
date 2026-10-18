@@ -45,12 +45,13 @@ def fit(args):
                 continue
             events = [e for e in episode['events'] if e['time'] <= episode['horizon']]
             times = torch.tensor([e['time'] for e in events], dtype=torch.float64)
-            sensor = torch.tensor([e['source'] for e in events])
-            nodes = torch.tensor([e['node'] for e in events])
+            sensor = torch.tensor([e['source'] for e in events], dtype=torch.long)
+            nodes = torch.tensor([e['node'] for e in events], dtype=torch.long)
             physical = times - latency[sensor]
             end = float(episode['horizon'])
             intensity = log_base.exp()[nodes]
-            integral = log_base.exp().sum() * end
+            origin = float(episode.get('start', 0.))
+            integral = log_base.exp().sum() * (end - origin)
             for j, edge in enumerate(graph['edges']):
                 upstream = physical[nodes == edge['u']]
                 downstream = physical[nodes == edge['v']]
@@ -63,7 +64,8 @@ def fit(args):
                     source_reliability = torch.tensor([graph['sources'][int(s)].get('reliability', 1.) for s in sensor[nodes == edge['u']]], dtype=torch.float64)
                     intensity = intensity.index_add(0, torch.nonzero(nodes == edge['v'], as_tuple=True)[0], (density * source_reliability).sum(1))
                     residual = (end - upstream).clamp_min(0) / scale[j]
-                    integral = integral + (torch.special.gammainc(shape[j], residual) * source_reliability).sum()
+                    initial = (origin - upstream).clamp_min(0) / scale[j]
+                    integral = integral + ((torch.special.gammainc(shape[j], residual) - torch.special.gammainc(shape[j], initial)) * source_reliability).sum()
             loss = loss + integral - intensity.clamp_min(1e-12).log().sum()
         priors = torch.tensor([s['latency_prior'] for s in graph['sources']], dtype=torch.float64)
         widths = torch.tensor([max(s.get('latency_sd', 1.), 1e-6) for s in graph['sources']], dtype=torch.float64)
@@ -147,7 +149,8 @@ def event_nll(episode, state, physical, edges):
     graph = state['graph']
     events = [e for e in episode['events'] if e['time'] <= episode['horizon']]
     from scipy.special import gammainc
-    integral = sum(state['baseline']) * episode['horizon']
+    origin = episode.get('start', 0.)
+    integral = sum(state['baseline']) * (episode['horizon'] - origin)
     loglike = 0.
     for i, event in enumerate(events):
         intensity = state['baseline'][event['node']]
@@ -168,7 +171,7 @@ def event_nll(episode, state, physical, edges):
         for k, upstream in enumerate(events):
             if upstream['node'] == edge['u']:
                 reliability = graph['sources'][upstream['source']].get('reliability', 1.)
-                integral += reliability * gammainc(shape, max(0, episode['horizon'] - physical[k]) * shape / state['edge_mean'][j])
+                integral += reliability * (gammainc(shape, max(0, episode['horizon'] - physical[k]) * shape / state['edge_mean'][j]) - gammainc(shape, max(0, origin - physical[k]) * shape / state['edge_mean'][j]))
     return float((integral - loglike) / len(events))
 
 
@@ -185,6 +188,7 @@ def evaluate(args):
         episode['events'] = [e for e in episode['events'] if e['source'] not in removed_sources]
         for event in episode['events']:
             event['time'] += args.clock_offset + args.latency_drift * event['source']
+        episode['start'] = episode.get('start', 0.) + args.clock_offset
         episode['horizon'] += args.clock_offset
         begin = time.perf_counter()
         ranked, physical = decode(episode, state, args.variant, args.depth, args.missing_penalty)
